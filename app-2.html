@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notion-Style Productivity Dashboard</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              500: '#0284c7',
+              600: '#0369a1',
+              700: '#075985',
+            },
+            notion: {
+              bgLight: '#fbfbfa',
+              cardLight: '#ffffff',
+              borderLight: '#e9e9e7',
+              textLight: '#37352f',
+              bgDark: '#191919',
+              cardDark: '#202020',
+              borderDark: '#2f2f2f',
+              textDark: '#rgba(255, 255, 255, 0.81)',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    .dark ::-webkit-scrollbar-thumb {
+      background: #475569;
+    }
+  </style>
+</head>
+<body class="h-full bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors duration-200">
+
+  <div id="app" class="flex h-screen overflow-hidden">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col transition-all duration-300 z-20">
+      <!-- Workspace Header -->
+      <div class="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-lg">
+            P
+          </div>
+          <span class="font-semibold text-slate-800 dark:text-slate-100 truncate">ProDashboard</span>
+        </div>
+        <button id="themeToggleBtn" class="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+          <i data-lucide="moon" class="w-4 h-4 dark:hidden"></i>
+          <i data-lucide="sun" class="w-4 h-4 hidden dark:block"></i>
+        </button>
+      </div>
+
+      <!-- Navigation Links -->
+      <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
+        <button onclick="switchTab('daily')" id="nav-daily" class="nav-btn active flex items-center gap-3 w-full px-3 py-2 text-sm font-medium rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Daily Overview
+        </button>
+        <button onclick="switchTab('tasks')" id="nav-tasks" class="nav-btn flex items-center gap-3 w-full px-3 py-2 text-sm font-medium rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition">
+          <i data-lucide="check-square" class="w-4 h-4"></i> My Tasks
+        </button>
+        <button onclick="switchTab('eisenhower')" id="nav-eisenhower" class="nav-btn flex items-center gap-3 w-full px-3 py-2 text-sm font-medium rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition">
+          <i data-lucide="grid" class="w-4 h-4"></i> Eisenhower Matrix
+        </button>
+        <button onclick="switchTab('followups')" id="nav-followups" class="nav-btn flex items-center gap-3 w-full px-3 py-2 text-sm font-medium rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition">
+          <i data-lucide="phone-call" class="w-4 h-4"></i> Follow-Up Center
+        </button>
+        <button onclick="switchTab('clients')" id="nav-clients" class="nav-btn flex items-center gap-3 w-full px-3 py-2 text-sm font-medium rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition">
+          <i data-lucide="users" class="w-4 h-4"></i> Client Monitoring
+        </button>
+        <button onclick="switchTab('reports')" id="nav-reports" class="nav-btn flex items-center gap-3 w-full px-3 py-2 text-sm font-medium rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition">
+          <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Monthly Performance
+        </button>
+      </nav>
+
+      <!-- Cloud Sync & Account Footer -->
+      <div class="p-3 border-t border-slate-200 dark:border-slate-700 space-y-2">
+        <div id="syncBadge" class="flex items-center justify-between text-xs px-2.5 py-1.5 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+          <span class="flex items-center gap-1.5">
+            <i data-lucide="hard-drive" class="w-3.5 h-3.5"></i>
+            <span id="syncStatusText">Local Storage</span>
+          </span>
+          <button onclick="openConfigModal()" class="underline hover:text-amber-900 dark:hover:text-amber-100">Config</button>
+        </div>
+
+        <div id="authSection" class="pt-1">
+          <button id="loginBtn" onclick="handleGoogleLogin()" class="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-sm transition">
+            <i data-lucide="cloud" class="w-4 h-4"></i> Sign in for Cloud Sync
+          </button>
+          <div id="userInfo" class="hidden flex items-center justify-between bg-slate-100 dark:bg-slate-700/50 p-2 rounded-lg">
+            <div class="flex items-center gap-2 overflow-hidden">
+              <img id="userAvatar" src="" class="w-6 h-6 rounded-full" alt="Avatar">
+              <span id="userName" class="text-xs font-medium text-slate-700 dark:text-slate-200 truncate"></span>
+            </div>
+            <button onclick="handleLogout()" title="Logout" class="text-slate-400 hover:text-red-500 transition">
+              <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Backup Buttons -->
+        <div class="flex gap-2 pt-1 text-xs">
+          <button onclick="exportDataJSON()" class="flex-1 py-1 px-2 border border-slate-300 dark:border-slate-600 rounded text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-center">
+            Export JSON
+          </button>
+          <button onclick="triggerImportJSON()" class="flex-1 py-1 px-2 border border-slate-300 dark:border-slate-600 rounded text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-center">
+            Import JSON
+          </button>
+          <input type="file" id="importFileInput" class="hidden" accept=".json" onchange="importDataJSON(event)">
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900 overflow-hidden">
+      <!-- Top Bar -->
+      <header class="h-14 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 bg-white/80 dark:bg-slate-900/80 backdrop-blur">
+        <h1 id="pageTitle" class="text-lg font-bold text-slate-800 dark:text-slate-100">Daily Overview</h1>
+        <div class="flex items-center gap-3">
+          <button onclick="openTaskModal()" class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-1.5 rounded-lg text-sm font-medium transition shadow-sm">
+            <i data-lucide="plus" class="w-4 h-4"></i> Quick Add Task
+          </button>
+        </div>
+      </header>
+
+      <!-- View Containers -->
+      <div id="viewContainer" class="flex-1 overflow-y-auto p-6">
+        
+        <!-- Tab 1: Daily Overview -->
+        <div id="view-daily" class="tab-content space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="p-4 rounded-xl bg-blue-50 dark:bg-slate-800/80 border border-blue-100 dark:border-slate-700">
+              <div class="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Due Today</div>
+              <div id="statDueToday" class="text-2xl font-extrabold text-slate-800 dark:text-slate-100 mt-1">0</div>
+            </div>
+            <div class="p-4 rounded-xl bg-red-50 dark:bg-slate-800/80 border border-red-100 dark:border-slate-700">
+              <div class="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider">Overdue</div>
+              <div id="statOverdue" class="text-2xl font-extrabold text-red-600 dark:text-red-400 mt-1">0</div>
+            </div>
+            <div class="p-4 rounded-xl bg-amber-50 dark:bg-slate-800/80 border border-amber-100 dark:border-slate-700">
+              <div class="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">On Hold</div>
+              <div id="statOnHold" class="text-2xl font-extrabold text-slate-800 dark:text-slate-100 mt-1">0</div>
+            </div>
+            <div class="p-4 rounded-xl bg-emerald-50 dark:bg-slate-800/80 border border-emerald-100 dark:border-slate-700">
+              <div class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Completed Today</div>
+              <div id="statCompletedToday" class="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">0</div>
+            </div>
+          </div>
+
+          <div class="bg-slate-50 dark:bg-slate-800/40 rounded-xl p-5 border border-slate-200 dark:border-slate-700">
+            <h2 class="text-md font-semibold mb-4 flex items-center gap-2">
+              <i data-lucide="check-circle" class="w-5 h-5 text-indigo-600"></i> Today's Priority Checklist
+            </h2>
+            <div id="dailyChecklist" class="space-y-2">
+              <!-- JS Injected Task List -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: My Tasks -->
+        <div id="view-tasks" class="tab-content hidden space-y-4">
+          <!-- Filters & Controls -->
+          <div class="flex flex-wrap items-center justify-between gap-4 bg-slate-50 dark:bg-slate-800/40 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+            <div class="flex items-center gap-2">
+              <input type="text" id="taskSearch" placeholder="Search tasks..." oninput="renderTasks()" class="px-3 py-1.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500">
+              <select id="filterClient" onchange="renderTasks()" class="px-3 py-1.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md">
+                <option value="ALL">All Clients</option>
+              </select>
+              <select id="filterStatus" onchange="renderTasks()" class="px-3 py-1.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md">
+                <option value="ALL">All Statuses</option>
+                <option value="To Do">To Do</option>
+                <option value="In Progress">In Progress</option>
+                <option value="On Hold">On Hold</option>
+                <option value="Done">Done</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-1 bg-slate-200 dark:bg-slate-700 p-1 rounded-md">
+              <button id="viewToggleKanban" onclick="setTaskView('kanban')" class="px-3 py-1 text-xs font-medium rounded bg-white dark:bg-slate-800 shadow-sm">Kanban</button>
+              <button id="viewToggleTable" onclick="setTaskView('table')" class="px-3 py-1 text-xs font-medium rounded text-slate-600 dark:text-slate-300">Table</button>
+            </div>
+          </div>
+
+          <!-- Kanban View -->
+          <div id="taskKanbanView" class="grid grid-cols-1 md:grid-cols-5 gap-4 overflow-x-auto min-h-[500px]">
+            <!-- Dynamic Kanban Columns -->
+          </div>
+
+          <!-- Table View -->
+          <div id="taskTableView" class="hidden overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-lg">
+            <table class="w-full text-sm text-left">
+              <thead class="text-xs uppercase bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                <tr>
+                  <th class="p-3">Task Title</th>
+                  <th class="p-3">Client</th>
+                  <th class="p-3">Status</th>
+                  <th class="p-3">Priority</th>
+                  <th class="p-3">Type</th>
+                  <th class="p-3">Due Date</th>
+                  <th class="p-3">PIC</th>
+                  <th class="p-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="taskTableBody" class="divide-y divide-slate-200 dark:divide-slate-800">
+                <!-- Dynamic Rows -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tab 3: Eisenhower Matrix -->
+        <div id="view-eisenhower" class="tab-content hidden space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 h-full min-h-[500px]">
+            <!-- Q1 -->
+            <div class="p-4 rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50/40 dark:bg-slate-800/50 flex flex-col">
+              <div class="flex justify-between items-center mb-3">
+                <span class="font-bold text-red-600 dark:text-red-400 text-sm uppercase">Q1: Urgent & Important (Do First)</span>
+                <span id="countQ1" class="text-xs font-bold px-2 py-0.5 rounded bg-red-200 dark:bg-red-900 text-red-800 dark:text-red-200">0</span>
+              </div>
+              <div id="eisenhowerQ1" class="flex-1 space-y-2 overflow-y-auto"></div>
+            </div>
+
+            <!-- Q2 -->
+            <div class="p-4 rounded-xl border border-blue-200 dark:border-blue-900/40 bg-blue-50/40 dark:bg-slate-800/50 flex flex-col">
+              <div class="flex justify-between items-center mb-3">
+                <span class="font-bold text-blue-600 dark:text-blue-400 text-sm uppercase">Q2: Not Urgent & Important (Schedule)</span>
+                <span id="countQ2" class="text-xs font-bold px-2 py-0.5 rounded bg-blue-200 dark:bg-blue-900 text-blue-800 dark:text-blue-200">0</span>
+              </div>
+              <div id="eisenhowerQ2" class="flex-1 space-y-2 overflow-y-auto"></div>
+            </div>
+
+            <!-- Q3 -->
+            <div class="p-4 rounded-xl border border-amber-200 dark:border-amber-900/40 bg-amber-50/40 dark:bg-slate-800/50 flex flex-col">
+              <div class="flex justify-between items-center mb-3">
+                <span class="font-bold text-amber-600 dark:text-amber-400 text-sm uppercase">Q3: Urgent & Not Important (Delegate)</span>
+                <span id="countQ3" class="text-xs font-bold px-2 py-0.5 rounded bg-amber-200 dark:bg-amber-900 text-amber-800 dark:text-amber-200">0</span>
+              </div>
+              <div id="eisenhowerQ3" class="flex-1 space-y-2 overflow-y-auto"></div>
+            </div>
+
+            <!-- Q4 -->
+            <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/40 dark:bg-slate-800/50 flex flex-col">
+              <div class="flex justify-between items-center mb-3">
+                <span class="font-bold text-slate-500 dark:text-slate-400 text-sm uppercase">Q4: Not Urgent & Not Important (Don't Do)</span>
+                <span id="countQ4" class="text-xs font-bold px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">0</span>
+              </div>
+              <div id="eisenhowerQ4" class="flex-1 space-y-2 overflow-y-auto"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 4: Follow-Up Center -->
+        <div id="view-followups" class="tab-content hidden space-y-4">
+          <div class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+            <table class="w-full text-sm text-left">
+              <thead class="text-xs uppercase bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                <tr>
+                  <th class="p-3">Task Title</th>
+                  <th class="p-3">Client</th>
+                  <th class="p-3">PIC</th>
+                  <th class="p-3">Last Follow-Up</th>
+                  <th class="p-3">Next Follow-Up</th>
+                  <th class="p-3">Status Badge</th>
+                  <th class="p-3 text-right">Quick Action</th>
+                </tr>
+              </thead>
+              <tbody id="followupTableBody" class="divide-y divide-slate-200 dark:divide-slate-800">
+                <!-- Injected Rows -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tab 5: Client Monitoring -->
+        <div id="view-clients" class="tab-content hidden space-y-6">
+          <div class="flex justify-between items-center">
+            <div class="flex items-center gap-2 border-b border-slate-200 dark:border-slate-700">
+              <button id="clientTabActive" onclick="setClientTab('active')" class="px-4 py-2 text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400">Active Clients</button>
+              <button id="clientTabArchived" onclick="setClientTab('archived')" class="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400">Archived Clients</button>
+            </div>
+            <button onclick="openClientModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1.5">
+              <i data-lucide="user-plus" class="w-4 h-4"></i> Add New Client
+            </button>
+          </div>
+
+          <div id="clientGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Client Cards Injected Here -->
+          </div>
+        </div>
+
+        <!-- Tab 6: Monthly Reports -->
+        <div id="view-reports" class="tab-content hidden space-y-6">
+          <div class="flex items-center justify-between bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div class="flex items-center gap-3">
+              <label class="text-sm font-medium">Select Month:</label>
+              <input type="month" id="reportMonthPicker" onchange="renderReports()" class="px-3 py-1.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md">
+            </div>
+            <button onclick="window.print()" class="px-3.5 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-sm font-medium hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2">
+              <i data-lucide="printer" class="w-4 h-4"></i> Print / Save PDF
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-white dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col items-center">
+              <h3 class="text-sm font-bold mb-4">Task Completion Rate</h3>
+              <div class="w-64 h-64">
+                <canvas id="chartCompletion"></canvas>
+              </div>
+            </div>
+            <div class="bg-white dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col items-center">
+              <h3 class="text-sm font-bold mb-4">Tasks by Client</h3>
+              <div class="w-full h-64">
+                <canvas id="chartClients"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- MODAL: Add/Edit Task -->
+  <div id="modalTask" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-700">
+      <div class="flex justify-between items-center mb-4">
+        <h3 id="modalTaskTitle" class="text-lg font-bold">Add New Task</h3>
+        <button onclick="closeTaskModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form id="taskForm" onsubmit="saveTask(event)" class="space-y-4">
+        <input type="hidden" id="taskId">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Task Title *</label>
+          <input type="text" id="taskTitleInput" required class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Client</label>
+            <select id="taskClientInput" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm"></select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Status</label>
+            <select id="taskStatusInput" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm">
+              <option value="To Do">To Do</option>
+              <option value="In Progress">In Progress</option>
+              <option value="On Hold">On Hold</option>
+              <option value="Done">Done</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Priority (Eisenhower)</label>
+            <select id="taskPriorityInput" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm">
+              <option value="Q1">Q1: Urgent & Important</option>
+              <option value="Q2" selected>Q2: Not Urgent & Important</option>
+              <option value="Q3">Q3: Urgent & Not Important</option>
+              <option value="Q4">Q4: Not Urgent & Not Important</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Type</label>
+            <select id="taskTypeInput" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm">
+              <option value="Regular">Regular</option>
+              <option value="Follow-Up">Follow-Up</option>
+              <option value="Routine">Routine</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Due Date</label>
+            <input type="date" id="taskDueDateInput" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">PIC Name</label>
+            <input type="text" id="taskPicInput" placeholder="Person in charge" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Notes / Description</label>
+          <textarea id="taskNotesInput" rows="2" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm"></textarea>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeTaskModal()" class="px-4 py-2 border rounded-lg text-xs font-medium">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium">Save Task</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Add Client -->
+  <div id="modalClient" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-sm w-full p-6 border border-slate-200 dark:border-slate-700">
+      <h3 class="text-lg font-bold mb-4">Add Client</h3>
+      <form onsubmit="saveClient(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Client Name *</label>
+          <input type="text" id="clientNameInput" required class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm">
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeClientModal()" class="px-4 py-2 border rounded-lg text-xs font-medium">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium">Save Client</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Firebase Config -->
+  <div id="modalConfig" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-700">
+      <h3 class="text-lg font-bold mb-2">Firebase Cloud Settings</h3>
+      <p class="text-xs text-slate-500 mb-4">Paste your Firebase web app config object below to enable multi-device real-time sync.</p>
+      <textarea id="firebaseConfigInput" rows="6" placeholder='{ "apiKey": "...", "authDomain": "...", "projectId": "..." }' class="w-full p-2.5 font-mono text-xs bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg mb-4"></textarea>
+      <div class="flex justify-end gap-2">
+        <button onclick="closeConfigModal()" class="px-4 py-2 border rounded-lg text-xs font-medium">Cancel</button>
+        <button onclick="saveFirebaseConfig()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium">Save & Initialize</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase Modular Scripts -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    window.firebaseModules = {
+      initializeApp, getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
+      getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, query
+    };
+  </script>
+
+  <!-- Main Application Logic -->
+  <script>
+    // System State & Initial Data
+    let dbState = {
+      tasks: [],
+      clients: [
+        { id: 'c1', name: 'Acme Corp', status: 'active' },
+        { id: 'c2', name: 'Stark Industries', status: 'active' }
+      ]
+    };
+
+    let currentUser = null;
+    let firebaseApp = null;
+    let firestoreDb = null;
+    let firebaseAuth = null;
+    let taskViewMode = 'kanban';
+    let currentClientTab = 'active';
+    let completionChart = null;
+    let clientChart = null;
+
+    // Default Date Picker setup
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      initApp();
+      const todayMonth = new Date().toISOString().slice(0, 7);
+      document.getElementById('reportMonthPicker').value = todayMonth;
+    });
+
+    function initApp() {
+      loadLocalStorage();
+      initFirebaseFromStorage();
+      renderAll();
+    }
+
+    // LocalStorage Fallback Handlers
+    function loadLocalStorage() {
+      const storedTasks = localStorage.getItem('pro_tasks');
+      const storedClients = localStorage.getItem('pro_clients');
+      if (storedTasks) dbState.tasks = JSON.parse(storedTasks);
+      if (storedClients) dbState.clients = JSON.parse(storedClients);
+    }
+
+    function saveLocalStorage() {
+      localStorage.setItem('pro_tasks', JSON.stringify(dbState.tasks));
+      localStorage.setItem('pro_clients', JSON.stringify(dbState.clients));
+    }
+
+    // Firebase Initialization
+    function initFirebaseFromStorage() {
+      const storedConfig = localStorage.getItem('pro_firebase_config');
+      if (!storedConfig) return;
+
+      try {
+        const config = JSON.parse(storedConfig);
+        const { initializeApp, getAuth, getFirestore, onAuthStateChanged } = window.firebaseModules;
+        
+        firebaseApp = initializeApp(config);
+        firebaseAuth = getAuth(firebaseApp);
+        firestoreDb = getFirestore(firebaseApp);
+
+        onAuthStateChanged(firebaseAuth, (user) => {
+          if (user) {
+            currentUser = user;
+            updateAuthUI(true);
+            setupFirestoreListeners();
+          } else {
+            currentUser = null;
+            updateAuthUI(false);
+          }
+        });
+      } catch (err) {
+        console.error("Firebase config error:", err);
+      }
+    }
+
+    function updateAuthUI(isLoggedIn) {
+      const syncBadge = document.getElementById('syncStatusText');
+      const loginBtn = document.getElementById('loginBtn');
+      const userInfo = document.getElementById('userInfo');
+
+      if (isLoggedIn && currentUser) {
+        syncBadge.innerText = 'Cloud Synced ☁️';
+        loginBtn.classList.add('hidden');
+        userInfo.classList.remove('hidden');
+        document.getElementById('userAvatar').src = currentUser.photoURL || 'https://via.placeholder.com/30';
+        document.getElementById('userName').innerText = currentUser.displayName || currentUser.email;
+      } else {
+        syncBadge.innerText = 'Local Storage 💾';
+        loginBtn.classList.remove('hidden');
+        userInfo.classList.add('hidden');
+      }
+    }
+
+    // Cloud Authentication
+    window.handleGoogleLogin = async function() {
+      if (!firebaseAuth) {
+        openConfigModal();
+        return;
+      }
+      const { GoogleAuthProvider, signInWithPopup } = window.firebaseModules;
+      const provider = new GoogleAuthProvider();
+      try {
+        await signInWithPopup(firebaseAuth, provider);
+      } catch (e) {
+        alert("Authentication failed: " + e.message);
+      }
+    };
+
+    window.handleLogout = async function() {
+      if (firebaseAuth) {
+        const { signOut } = window.firebaseModules;
+        await signOut(firebaseAuth);
+        loadLocalStorage();
+        renderAll();
+      }
+    };
+
+    // Realtime Firestore Listeners
+    function setupFirestoreListeners() {
+      if (!firestoreDb || !currentUser) return;
+      const { collection, onSnapshot } = window.firebaseModules;
+
+      // Sync Tasks
+      onSnapshot(collection(firestoreDb, 'users', currentUser.uid, 'tasks'), (snapshot) => {
+        const tasks = [];
+        snapshot.forEach((doc) => tasks.push({ id: doc.id, ...doc.data() }));
+        dbState.tasks = tasks;
+        saveLocalStorage();
+        renderAll();
+      });
+
+      // Sync Clients
+      onSnapshot(collection(firestoreDb, 'users', currentUser.uid, 'clients'), (snapshot) => {
+        const clients = [];
+        snapshot.forEach((doc) => clients.push({ id: doc.id, ...doc.data() }));
+        dbState.clients = clients;
+        saveLocalStorage();
+        renderAll();
+      });
+    }
+
+    // Data Write Wrapper
+    async function syncData(type, item, action = 'set') {
+      saveLocalStorage();
+      if (firestoreDb && currentUser) {
+        const { doc, setDoc, deleteDoc } = window.firebaseModules;
+        const ref = doc(firestoreDb, 'users', currentUser.uid, type, item.id);
+        if (action === 'delete') {
+          await deleteDoc(ref);
+        } else {
+          await setDoc(ref, item);
+        }
+      }
+    }
+
+    // Navigation & View Switches
+    window.switchTab = function(tabName) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('bg-indigo-50', 'text-indigo-600', 'dark:bg-slate-700'));
+      
+      document.getElementById(`view-${tabName}`).classList.remove('hidden');
+      document.getElementById(`nav-${tabName}`).classList.add('bg-indigo-50', 'text-indigo-600', 'dark:bg-slate-700');
+      
+      const titles = {
+        daily: 'Daily Overview',
+        tasks: 'My Tasks Management',
+        eisenhower: 'Eisenhower Matrix',
+        followups: 'Follow-Up Center',
+        clients: 'Client Monitoring',
+        reports: 'Monthly Performance Report'
+      };
+      document.getElementById('pageTitle').innerText = titles[tabName];
+      renderAll();
+    };
+
+    // Render All Views
+    function renderAll() {
+      renderDaily();
+      renderTasks();
+      renderEisenhower();
+      renderFollowups();
+      renderClients();
+      renderReports();
+      lucide.createIcons();
+    }
+
+    // --- VIEW 1: DAILY OVERVIEW ---
+    function renderDaily() {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const dueToday = dbState.tasks.filter(t => t.dueDate === todayStr && t.status !== 'Done');
+      const overdue = dbState.tasks.filter(t => t.dueDate < todayStr && t.status !== 'Done' && t.dueDate);
+      const onHold = dbState.tasks.filter(t => t.status === 'On Hold');
+      const completedToday = dbState.tasks.filter(t => t.status === 'Done' && t.updatedAt === todayStr);
+
+      document.getElementById('statDueToday').innerText = dueToday.length;
+      document.getElementById('statOverdue').innerText = overdue.length;
+      document.getElementById('statOnHold').innerText = onHold.length;
+      document.getElementById('statCompletedToday').innerText = completedToday.length;
+
+      const checklistEl = document.getElementById('dailyChecklist');
+      checklistEl.innerHTML = '';
+
+      if (dueToday.length === 0) {
+        checklistEl.innerHTML = `<p class="text-sm text-slate-500 italic py-2">No tasks due today 🎉</p>`;
+        return;
+      }
+
+      dueToday.forEach(task => {
+        const div = document.createElement('div');
+        div.className = 'flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700';
+        div.innerHTML = `
+          <div class="flex items-center gap-3">
+            <input type="checkbox" ${task.status === 'Done' ? 'checked' : ''} onchange="toggleTaskDone('${task.id}')" class="w-4 h-4 rounded text-indigo-600">
+            <span class="${task.status === 'Done' ? 'line-through text-slate-400' : 'font-medium'} text-sm">${task.title}</span>
+          </div>
+          <span class="text-xs px-2 py-0.5 rounded bg-indigo-50 dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 font-medium">${task.client || 'General'}</span>
+        `;
+        checklistEl.appendChild(div);
+      });
+    }
+
+    window.toggleTaskDone = function(id) {
+      const task = dbState.tasks.find(t => t.id === id);
+      if (task) {
+        task.status = task.status === 'Done' ? 'To Do' : 'Done';
+        task.updatedAt = new Date().toISOString().split('T')[0];
+        syncData('tasks', task);
+        renderAll();
+      }
+    };
+
+    // --- VIEW 2: MY TASKS ---
+    window.setTaskView = function(mode) {
+      taskViewMode = mode;
+      document.getElementById('viewToggleKanban').className = mode === 'kanban' ? 'px-3 py-1 text-xs font-medium rounded bg-white dark:bg-slate-800 shadow-sm' : 'px-3 py-1 text-xs font-medium rounded text-slate-600 dark:text-slate-300';
+      document.getElementById('viewToggleTable').className = mode === 'table' ? 'px-3 py-1 text-xs font-medium rounded bg-white dark:bg-slate-800 shadow-sm' : 'px-3 py-1 text-xs font-medium rounded text-slate-600 dark:text-slate-300';
+      
+      document.getElementById('taskKanbanView').classList.toggle('hidden', mode !== 'kanban');
+      document.getElementById('taskTableView').classList.toggle('hidden', mode !== 'table');
+      renderTasks();
+    };
+
+    function renderTasks() {
+      const search = document.getElementById('taskSearch').value.toLowerCase();
+      const clientFilter = document.getElementById('filterClient').value;
+      const statusFilter = document.getElementById('filterStatus').value;
+
+      // Populate Client Filter Options
+      const clientSelect = document.getElementById('filterClient');
+      clientSelect.innerHTML = '<option value="ALL">All Clients</option>' + 
+        dbState.clients.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+      clientSelect.value = clientFilter;
+
+      let filtered = dbState.tasks.filter(t => {
+        const matchesSearch = t.title.toLowerCase().includes(search);
+        const matchesClient = clientFilter === 'ALL' || t.client === clientFilter;
+        const matchesStatus = statusFilter === 'ALL' || t.status === statusFilter;
+        return matchesSearch && matchesClient && matchesStatus;
+      });
+
+      if (taskViewMode === 'kanban') {
+        const statuses = ['To Do', 'In Progress', 'On Hold', 'Done', 'Cancelled'];
+        const kanbanContainer = document.getElementById('taskKanbanView');
+        kanbanContainer.innerHTML = '';
+
+        statuses.forEach(status => {
+          const tasksInStatus = filtered.filter(t => t.status === status);
+          const col = document.createElement('div');
+          col.className = 'bg-slate-100 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col gap-2 min-w-[200px]';
+          col.innerHTML = `
+            <div class="flex justify-between items-center mb-1">
+              <span class="text-xs font-bold uppercase text-slate-600 dark:text-slate-400">${status}</span>
+              <span class="text-xs bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full font-semibold">${tasksInStatus.length}</span>
+            </div>
+            <div class="space-y-2 flex-1">
+              ${tasksInStatus.map(t => `
+                <div class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm space-y-2">
+                  <div class="flex justify-between items-start">
+                    <span class="font-semibold text-sm line-clamp-2">${t.title}</span>
+                  </div>
+                  <div class="flex flex-wrap gap-1">
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 font-medium">${t.client || 'General'}</span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 font-medium">${t.priority}</span>
+                  </div>
+                  <div class="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700/50 text-xs text-slate-500">
+                    <span>${t.dueDate || 'No Date'}</span>
+                    <div class="flex gap-1">
+                      <button onclick="editTask('${t.id}')" class="hover:text-indigo-600"><i data-lucide="edit-3" class="w-3.5 h-3.5"></i></button>
+                      <button onclick="deleteTask('${t.id}')" class="hover:text-red-600"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `;
+          kanbanContainer.appendChild(col);
+        });
+      } else {
+        const tbody = document.getElementById('taskTableBody');
+        tbody.innerHTML = filtered.map(t => `
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+            <td class="p-3 font-medium">${t.title}</td>
+            <td class="p-3">${t.client || '-'}</td>
+            <td class="p-3"><span class="px-2 py-0.5 text-xs rounded bg-slate-100 dark:bg-slate-700">${t.status}</span></td>
+            <td class="p-3">${t.priority}</td>
+            <td class="p-3">${t.type}</td>
+            <td class="p-3">${t.dueDate || '-'}</td>
+            <td class="p-3">${t.pic || '-'}</td>
+            <td class="p-3 text-right space-x-2">
+              <button onclick="editTask('${t.id}')" class="text-indigo-600 hover:underline">Edit</button>
+              <button onclick="deleteTask('${t.id}')" class="text-red-600 hover:underline">Delete</button>
+            </td>
+          </tr>
+        `).join('');
+      }
+      lucide.createIcons();
+    }
+
+    // --- VIEW 3: EISENHOWER MATRIX ---
+    function renderEisenhower() {
+      const quads = { Q1: [], Q2: [], Q3: [], Q4: [] };
+      dbState.tasks.forEach(t => {
+        if (quads[t.priority]) quads[t.priority].push(t);
+      });
+
+      ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+        document.getElementById(`count${q}`).innerText = quads[q].length;
+        const container = document.getElementById(`eisenhower${q}`);
+        container.innerHTML = quads[q].map(t => `
+          <div class="bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between text-xs">
+            <span class="${t.status === 'Done' ? 'line-through text-slate-400' : 'font-semibold'}">${t.title}</span>
+            <span class="text-[10px] text-slate-500">${t.dueDate || ''}</span>
+          </div>
+        `).join('');
+      });
+    }
+
+    // --- VIEW 4: FOLLOW-UP CENTER ---
+    function renderFollowups() {
+      const followups = dbState.tasks.filter(t => t.type === 'Follow-Up' && t.status !== 'Done');
+      const tbody = document.getElementById('followupTableBody');
+      const today = new Date().toISOString().split('T')[0];
+
+      tbody.innerHTML = followups.map(t => {
+        let badge = '<span class="px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded">Upcoming</span>';
+        if (t.dueDate < today) badge = '<span class="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded font-bold">Overdue</span>';
+        else if (t.dueDate === today) badge = '<span class="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded font-bold">Today</span>';
+
+        return `
+          <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+            <td class="p-3 font-medium">${t.title}</td>
+            <td class="p-3">${t.client || '-'}</td>
+            <td class="p-3">${t.pic || '-'}</td>
+            <td class="p-3 text-xs text-slate-500">${t.updatedAt || 'N/A'}</td>
+            <td class="p-3 text-xs">${t.dueDate || 'N/A'}</td>
+            <td class="p-3">${badge}</td>
+            <td class="p-3 text-right">
+              <button onclick="toggleTaskDone('${t.id}')" class="px-2.5 py-1 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700">Mark Done</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // --- VIEW 5: CLIENT MONITORING ---
+    window.setClientTab = function(status) {
+      currentClientTab = status;
+      document.getElementById('clientTabActive').className = status === 'active' ? 'px-4 py-2 text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400';
+      document.getElementById('clientTabArchived').className = status === 'archived' ? 'px-4 py-2 text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400';
+      renderClients();
+    };
+
+    function renderClients() {
+      const grid = document.getElementById('clientGrid');
+      const filteredClients = dbState.clients.filter(c => (c.status || 'active') === currentClientTab);
+
+      grid.innerHTML = filteredClients.map(c => {
+        const clientTasks = dbState.tasks.filter(t => t.client === c.name);
+        const routines = clientTasks.filter(t => t.type === 'Routine');
+        const completedRoutines = routines.filter(t => t.status === 'Done');
+        const progress = routines.length ? Math.round((completedRoutines.length / routines.length) * 100) : 0;
+
+        return `
+          <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-3">
+            <div class="flex justify-between items-center">
+              <h4 class="font-bold text-base">${c.name}</h4>
+              <button onclick="toggleArchiveClient('${c.id}')" class="text-xs text-slate-400 hover:text-slate-600">${c.status === 'archived' ? 'Unarchive' : 'Archive'}</button>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs text-slate-500 mb-1">
+                <span>Routine Tasks Progress</span>
+                <span>${completedRoutines.length}/${routines.length} (${progress}%)</span>
+              </div>
+              <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                <div class="bg-indigo-600 h-2 rounded-full" style="width: ${progress}%"></div>
+              </div>
+            </div>
+            <div class="text-xs text-slate-500 pt-2 border-t border-slate-100 dark:border-slate-700 flex justify-between">
+              <span>Total Active Tasks: ${clientTasks.filter(t => t.status !== 'Done').length}</span>
+              <button onclick="deleteClient('${c.id}')" class="text-red-500 hover:underline">Delete</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // --- VIEW 6: REPORTS ---
+    function renderReports() {
+      const monthVal = document.getElementById('reportMonthPicker').value;
+      const tasksInMonth = dbState.tasks.filter(t => (t.dueDate && t.dueDate.startsWith(monthVal)) || (t.updatedAt && t.updatedAt.startsWith(monthVal)));
+
+      const completed = tasksInMonth.filter(t => t.status === 'Done').length;
+      const pending = tasksInMonth.length - completed;
+
+      // Completion Chart
+      const ctx1 = document.getElementById('chartCompletion').getContext('2d');
+      if (completionChart) completionChart.destroy();
+      completionChart = new Chart(ctx1, {
+        type: 'doughnut',
+        data: {
+          labels: ['Completed', 'Pending/In Progress'],
+          datasets: [{
+            data: [completed, pending],
+            backgroundColor: ['#10b981', '#f59e0b']
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+
+      // Tasks per Client Chart
+      const clientCounts = {};
+      dbState.clients.forEach(c => clientCounts[c.name] = 0);
+      tasksInMonth.forEach(t => {
+        if (t.client && clientCounts[t.client] !== undefined) clientCounts[t.client]++;
+      });
+
+      const ctx2 = document.getElementById('chartClients').getContext('2d');
+      if (clientChart) clientChart.destroy();
+      clientChart = new Chart(ctx2, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(clientCounts),
+          datasets: [{
+            label: 'Tasks Assigned',
+            data: Object.values(clientCounts),
+            backgroundColor: '#6366f1'
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+      });
+    }
+
+    // Task Modals & Handlers
+    window.openTaskModal = function() {
+      document.getElementById('taskForm').reset();
+      document.getElementById('taskId').value = '';
+      document.getElementById('modalTaskTitle').innerText = 'Add New Task';
+      
+      const clientSelect = document.getElementById('taskClientInput');
+      clientSelect.innerHTML = '<option value="">-- Select Client --</option>' + 
+        dbState.clients.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+
+      document.getElementById('modalTask').classList.remove('hidden');
+      document.getElementById('modalTask').classList.add('flex');
+    };
+
+    window.closeTaskModal = function() {
+      document.getElementById('modalTask').classList.add('hidden');
+      document.getElementById('modalTask').classList.remove('flex');
+    };
+
+    window.saveTask = function(e) {
+      e.preventDefault();
+      const id = document.getElementById('taskId').value || 't_' + Date.now();
+      const taskObj = {
+        id,
+        title: document.getElementById('taskTitleInput').value,
+        client: document.getElementById('taskClientInput').value,
+        status: document.getElementById('taskStatusInput').value,
+        priority: document.getElementById('taskPriorityInput').value,
+        type: document.getElementById('taskTypeInput').value,
+        dueDate: document.getElementById('taskDueDateInput').value,
+        pic: document.getElementById('taskPicInput').value,
+        notes: document.getElementById('taskNotesInput').value,
+        updatedAt: new Date().toISOString().split('T')[0]
+      };
+
+      const existingIdx = dbState.tasks.findIndex(t => t.id === id);
+      if (existingIdx > -1) {
+        dbState.tasks[existingIdx] = taskObj;
+      } else {
+        dbState.tasks.push(taskObj);
+      }
+
+      syncData('tasks', taskObj);
+      closeTaskModal();
+      renderAll();
+    };
+
+    window.editTask = function(id) {
+      const t = dbState.tasks.find(x => x.id === id);
+      if (!t) return;
+      openTaskModal();
+      document.getElementById('modalTaskTitle').innerText = 'Edit Task';
+      document.getElementById('taskId').value = t.id;
+      document.getElementById('taskTitleInput').value = t.title;
+      document.getElementById('taskClientInput').value = t.client || '';
+      document.getElementById('taskStatusInput').value = t.status;
+      document.getElementById('taskPriorityInput').value = t.priority;
+      document.getElementById('taskTypeInput').value = t.type;
+      document.getElementById('taskDueDateInput').value = t.dueDate || '';
+      document.getElementById('taskPicInput').value = t.pic || '';
+      document.getElementById('taskNotesInput').value = t.notes || '';
+    };
+
+    window.deleteTask = function(id) {
+      const task = dbState.tasks.find(t => t.id === id);
+      dbState.tasks = dbState.tasks.filter(t => t.id !== id);
+      if (task) syncData('tasks', task, 'delete');
+      renderAll();
+    };
+
+    // Client Modals & Handlers
+    window.openClientModal = function() {
+      document.getElementById('modalClient').classList.remove('hidden');
+      document.getElementById('modalClient').classList.add('flex');
+    };
+
+    window.closeClientModal = function() {
+      document.getElementById('modalClient').classList.add('hidden');
+      document.getElementById('modalClient').classList.remove('flex');
+    };
+
+    window.saveClient = function(e) {
+      e.preventDefault();
+      const clientObj = {
+        id: 'c_' + Date.now(),
+        name: document.getElementById('clientNameInput').value,
+        status: 'active'
+      };
+      dbState.clients.push(clientObj);
+      syncData('clients', clientObj);
+      closeClientModal();
+      renderAll();
+    };
+
+    window.toggleArchiveClient = function(id) {
+      const c = dbState.clients.find(x => x.id === id);
+      if (c) {
+        c.status = c.status === 'archived' ? 'active' : 'archived';
+        syncData('clients', c);
+        renderAll();
+      }
+    };
+
+    window.deleteClient = function(id) {
+      const client = dbState.clients.find(c => c.id === id);
+      dbState.clients = dbState.clients.filter(c => c.id !== id);
+      if (client) syncData('clients', client, 'delete');
+      renderAll();
+    };
+
+    // Firebase Config Modals
+    window.openConfigModal = function() {
+      document.getElementById('modalConfig').classList.remove('hidden');
+      document.getElementById('modalConfig').classList.add('flex');
+    };
+
+    window.closeConfigModal = function() {
+      document.getElementById('modalConfig').classList.add('hidden');
+      document.getElementById('modalConfig').classList.remove('flex');
+    };
+
+    window.saveFirebaseConfig = function() {
+      const raw = document.getElementById('firebaseConfigInput').value;
+      try {
+        JSON.parse(raw);
+        localStorage.setItem('pro_firebase_config', raw);
+        closeConfigModal();
+        alert("Config saved! Reloading page...");
+        window.location.reload();
+      } catch (err) {
+        alert("Invalid JSON format for Firebase configuration.");
+      }
+    };
+
+    // Import / Export JSON Backup
+    window.exportDataJSON = function() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dbState, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `pro_dashboard_backup_${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    };
+
+    window.triggerImportJSON = function() {
+      document.getElementById('importFileInput').click();
+    };
+
+    window.importDataJSON = function(event) {
+      const fileReader = new FileReader();
+      fileReader.onload = function(e) {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (parsed.tasks && parsed.clients) {
+            dbState = parsed;
+            saveLocalStorage();
+            renderAll();
+            alert("Backup restored successfully!");
+          } else {
+            alert("Invalid backup file format.");
+          }
+        } catch (err) {
+          alert("Error reading JSON file.");
+        }
+      };
+      fileReader.readAsText(event.target.files[0]);
+    };
+
+    // Dark Mode Toggle
+    document.getElementById('themeToggleBtn').addEventListener('click', () => {
+      document.documentElement.classList.toggle('dark');
+    });
+  </script>
+</body>
+</html>
